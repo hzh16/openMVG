@@ -120,9 +120,9 @@ public:
   // Creates the hashing projections (cascade of two level of hash codes)
   bool Init
   (
-    const uint8_t nb_hash_code = 128,
-    const uint8_t nb_bucket_groups = 6,
-    const uint8_t nb_bits_per_bucket = 10,
+    const uint16_t nb_hash_code = 128,
+    const uint16_t nb_bucket_groups = 6,
+    const uint16_t nb_bits_per_bucket = 10,
     const unsigned random_seed = std::mt19937::default_seed)
   {
     nb_bucket_groups_= nb_bucket_groups;

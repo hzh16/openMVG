@@ -11,19 +11,19 @@ import threading
 from tqdm import tqdm
 
 # // U T I L S ///////////////////////////////////////////////////////
-def loadJSON():
+def loadJSON(args):
   with open(args.input) as file:
     sfm_data = json.load(file)
   view_ids = {view['key']:view['value']['ptr_wrapper']['data']['filename'] for view in sfm_data['views']}
   image_paths = [os.path.join(sfm_data['root_path'], view['value']['ptr_wrapper']['data']['filename']) for view in sfm_data['views']]
   return view_ids, image_paths
 
-def saveFeatures(keypoints, descriptors, scores, basename):
+def saveFeatures(args, keypoints, descriptors, scores, basename):
   torch.save(keypoints, os.path.join(args.matches, f'{basename}.keyp.pt'))
   torch.save(descriptors, os.path.join(args.matches, f'{basename}.desc.pt'))
   torch.save(scores, os.path.join(args.matches, f'{basename}.scor.pt'))
 
-def loadFeatures(filename):
+def loadFeatures(args, device, filename):
   keyp_filename = os.path.join(args.matches, f'{os.path.splitext(filename)[0]}.keyp.pt')
   desc_filename = os.path.join(args.matches, f'{os.path.splitext(filename)[0]}.desc.pt')
   scor_filename = os.path.join(args.matches, f'{os.path.splitext(filename)[0]}.scor.pt')
@@ -32,17 +32,17 @@ def loadFeatures(filename):
   scores = torch.load(os.path.join(args.matches, scor_filename)).to(device)
   return keypoints, descriptors, scores
 
-def saveFeaturesOpenMVG(basename, keypoints):
+def saveFeaturesOpenMVG(args, basename, keypoints):
   with open(os.path.join(args.matches, f'{basename}.feat'), 'w') as feat:
     for x, y in keypoints.numpy():
       feat.write(f'{x} {y} 1.0 0.0\n')
 
-def saveDescriptorsOpenMVG(basename, descriptors):
+def saveDescriptorsOpenMVG(args, basename, descriptors):
   with open(os.path.join(args.matches, f'{basename}.desc'), 'wb') as desc:
     desc.write(len(descriptors).to_bytes(8, byteorder='little'))
     desc.write(((descriptors.numpy() + 1) * 0.5 * 255).round(0).astype(np.ubyte).tobytes())
 
-def saveMatchesOpenMVG(matches):
+def saveMatchesOpenMVG(args, matches):
   with open(args.output, 'wb') as bin:
     bin.write((1).to_bytes(1, byteorder='little'))
     bin.write(len(matches).to_bytes(8, byteorder='little'))
@@ -53,7 +53,7 @@ def saveMatchesOpenMVG(matches):
       bin.write(idxs.tobytes())
 
 # // F E A T U R E ///////////////////////////////////////////////////
-def featureExtraction():
+def featureExtraction(args):
   print('Extracting DISK features...')
   for image_path in tqdm(image_paths):
     img = Image.new_from_file(image_path, access='sequential')
@@ -79,18 +79,18 @@ def featureExtraction():
     features = disk(img, n=args.max_features, window_size=args.window_size, score_threshold=args.score_threshold, pad_if_not_divisible=True)[0].to('cpu')
     keypoints = torch.div(features.keypoints, scale)
 
-    threading.Thread(target=lambda: saveFeatures(keypoints, features.descriptors, features.detection_scores, basename)).start()
+    threading.Thread(target=lambda: saveFeatures(args, keypoints, features.descriptors, features.detection_scores, basename)).start()
 
-    threading.Thread(target=lambda: saveFeaturesOpenMVG(basename, keypoints)).start()
-    threading.Thread(target=lambda: saveDescriptorsOpenMVG(basename, features.descriptors)).start()
+    threading.Thread(target=lambda: saveFeaturesOpenMVG(args, basename, keypoints)).start()
+    threading.Thread(target=lambda: saveDescriptorsOpenMVG(args, basename, features.descriptors)).start()
 
 # // M A T C H I N G /////////////////////////////////////////////////
-def featureMatching():
+def featureMatching(args, device, lightglue, view_ids):
   print('Matching DISK features with LightGlue...')
   putative_matches = []
   for image1_index, image2_index in tqdm((np.loadtxt(args.pair_list, dtype=np.int32) if args.pair_list != None else np.asarray([*combinations(view_ids, 2)], dtype=np.int32))):
-    keyp1, desc1, scor1 = loadFeatures(view_ids[image1_index])
-    keyp2, desc2, scor2 = loadFeatures(view_ids[image2_index])
+    keyp1, desc1, scor1 = loadFeatures(args, device, view_ids[image1_index])
+    keyp2, desc2, scor2 = loadFeatures(args, device, view_ids[image2_index])
 
     lafs1 = K.feature.laf_from_center_scale_ori(keyp1[None], 96 * torch.ones(1, len(keyp1), 1, 1, device=device))
     lafs2 = K.feature.laf_from_center_scale_ori(keyp2[None], 96 * torch.ones(1, len(keyp2), 1, 1, device=device))
@@ -100,7 +100,7 @@ def featureMatching():
     putative_matches.append([image1_index, image2_index, idxs.cpu().numpy().astype(np.int32)])
 
   print('Saving putative matches...')
-  saveMatchesOpenMVG(putative_matches)
+  saveMatchesOpenMVG(args, putative_matches)
 
 if __name__ == '__main__':
 
@@ -123,7 +123,7 @@ if __name__ == '__main__':
   parser.add_argument('--filter_threshold', type=float, default=0.99, help='LightGlue match threshold')
   args = parser.parse_args()
 
-  view_ids, image_paths = loadJSON()
+  view_ids, image_paths = loadJSON(args)
   if args.output == None:
     args.output = os.path.join(args.matches, 'matches.putative.bin')
 
@@ -144,6 +144,6 @@ if __name__ == '__main__':
 
   with torch.inference_mode():
     if args.preset == 'EXTRACT' or args.preset == 'BOTH':
-      featureExtraction()
+      featureExtraction(args)
     if args.preset == 'MATCH' or args.preset == 'BOTH':
-      featureMatching()
+      featureMatching(args, device, lightglue, view_ids)

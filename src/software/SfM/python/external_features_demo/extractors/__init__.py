@@ -1,0 +1,3 @@
+from .base_extractor import BaseExtractor
+from .dinov2_g14_reg_extractor import DINOv2G14RegExtractor
+from .deeplab_v3_extractor import DeepLabv3Extractor
