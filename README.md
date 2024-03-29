@@ -129,3 +129,29 @@ openMVG authors would like to thanks libmv authors for providing an inspiring
 base to design openMVG. Authors also would like to thanks [Mikros Image](http://www.mikrosimage.eu/)
 and [LIGM-Imagine laboratory](http://imagine.enpc.fr/) for support and authorization to make this
 library an opensource project.
+
+## To run the code
+
+Build openmvg follow the step above
+
+Build openmvs code for multiview stereo
+
+Change the following variables in MvgMvsPipeline.py
+
+```
+OPENMVG_BIN1      --> the path to the built bin of the camera intrinsic parameters(iarpa uses some different version of cameras. We use the work of steven code to extract intrinsic parameters)
+OPENMVG_BIN       --> the path to the built bin of openmvg (the path openMVG_Build/Linux-x86_64-RELEASE)
+OPENMVG_PYTHONSRC --> the path to the python files (the path ./src/software/SfM/python/external_features_demo)
+OPENMVS_BIN       --> the path to the bin of openmvs
+```
+
+Run
+```
+python MvgMvsPipeline.py path-to-image $work_directory --preset SEQUENTIAL_BOTH
+```
+The sfm result can be displayed as work_directory/sfm/cloud_and_poses.ply.
+
+The mvs point cloud result can be displayed as work_directory/mvs/scene_dense.ply.
+
+You can change mode of preset by change the parameter after --preset.
+
