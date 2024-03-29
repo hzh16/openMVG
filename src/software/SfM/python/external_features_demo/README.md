@@ -38,3 +38,7 @@ $ python kornia_demo.py -i "...\ImageDataset_SceauxCastle\images\sfm\matches\sfm
 ```
 
 Afterwards, run openMVG_main_GeometricFilter and openMVG_main_SfM as normal.
+
+**To run our modification**
+
+Change kornia_demo.py to kornia_two_features.py
