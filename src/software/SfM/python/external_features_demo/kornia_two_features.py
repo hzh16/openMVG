@@ -1,31 +1,62 @@
 '''
 kornia_deep_features.py
 ---------------------
-This file replaces the DISK descriptors in kornia_demo.py by deep descriptors.
-It starts by using DISK to obtain the keypoint coordinates and then extracts the
-deep features at the DISK coordinates.
+This file extract the deep descriptors based on the SIFT feature points and match each keypoints based on two descriptors.
+First use deep descriptors to find global position and use sift descriptors to find local position
 
 Unlike kornia_demo.py, this file only supports feature extraction and does not
 support matching.
 '''
-
+from pyvips import Image
 from argparse import ArgumentParser
 import kornia as K
 import os
-from pyvips import Image
 import torch
 import torchvision.transforms as transforms
 import threading
 from tqdm import tqdm
+import numpy as np
+from itertools import combinations
 
 import extractors
-from kornia_demo import loadJSON, saveFeaturesOpenMVG
+from kornia_demo import loadJSON, saveMatchesOpenMVG, loadFeatures
+from sklearn.neighbors import KDTree
 
 
 def saveDescriptorsOpenMVG(args, basename, descriptors):
     with open(os.path.join(args.matches, f'{basename}.desc'), 'wb') as desc:
         desc.write(len(descriptors).to_bytes(8, byteorder='little'))
         desc.write(descriptors.numpy().astype('<f4').tobytes())
+
+
+def loadDescriptorsOpenMVG_int(args, basename):
+    descriptors = []
+    with open(os.path.join(args.matches, f'{basename}.desc'), 'rb') as desc:
+        desc_content = desc.read()
+        n = int.from_bytes(desc_content[:8], byteorder='little')
+        descriptors = np.frombuffer(desc_content[8:], dtype="ubyte")
+    descriptors = np.reshape(descriptors, (n, -1))
+    return descriptors
+
+
+def loadDescriptorsOpenMVG_float(args, basename):
+    descriptors = []
+    with open(os.path.join(args.matches, f'{basename}.desc'), 'rb') as desc:
+        desc_content = desc.read()
+        n = int.from_bytes(desc_content[:8], byteorder='little')
+        descriptors = np.frombuffer(desc_content[8:], dtype="<f4")
+    descriptors = np.reshape(descriptors, (n, -1))
+    return descriptors
+
+
+def loadFeaturesOpenMVG(args, basename):
+    keypoints = []
+    with open(os.path.join(args.matches, f'{basename}.feat'), 'r') as feat:
+        for l in feat:
+            l = l.strip().split()
+            keypoints.append([float(l[0]), float(l[1])])
+    keypoints = np.array(keypoints)
+    return keypoints
 
 
 def featureExtraction(args):
@@ -35,6 +66,9 @@ def featureExtraction(args):
     features. The keypoint coordinates and the detection scores are unchanged.
     '''
     print('Extracting deep features...')
+    if(not os.path.exists(os.path.join(args.matches, "deep_desc"))):
+        os.mkdir(os.path.join(args.matches, "deep_desc"))
+
     for image_path in tqdm(image_paths):
         img = Image.new_from_file(image_path, access='sequential')
         basename = os.path.splitext(os.path.basename(image_path))[0]
@@ -64,28 +98,55 @@ def featureExtraction(args):
             img.resize(scale, kernel='linear').numpy()
         )[None, ...].to(device)
 
-        features = disk(
-            img,
-            n=args.max_features,
-            window_size=args.window_size,
-            score_threshold=args.score_threshold,
-            pad_if_not_divisible=True)[0].to('cpu')
-
         ################################################
         # Changes to kornia_demo.py starts here        #
         ################################################
-        features.descriptors = deep_extractor(img, features.keypoints).to('cpu')
-        keypoints = torch.div(features.keypoints, scale)
+        keypoints = loadFeaturesOpenMVG(args, basename)
+        keypoints = torch.tensor(keypoints.astype(np.float32)).to(device)
+
+        descriptors = deep_extractor(img, keypoints * scale).to('cpu')
         ################################################
         # Changes to kornia_demo.py ends here          #
         ################################################
 
-        threading.Thread(target=lambda: saveFeaturesOpenMVG(
-            args, basename, keypoints
-        )).start()
         threading.Thread(target=lambda: saveDescriptorsOpenMVG(
-            args, basename, features.descriptors
+            args, os.path.join("deep_desc", basename), descriptors
         )).start()
+
+
+def featureMatching(args, device, view_ids):
+    print('Matching DISK features with two step...')
+    putative_matches = []
+    lastidx = -1
+    for image1_index, image2_index in tqdm((np.loadtxt(args.pair_list, dtype=np.int32) if args.pair_list != None else np.asarray([*combinations(view_ids, 2)], dtype=np.int32))):
+        keyp1 = loadFeaturesOpenMVG(args, os.path.splitext(view_ids[image1_index])[0])
+        keyp2 = loadFeaturesOpenMVG(args, os.path.splitext(view_ids[image2_index])[0])
+        desc1_sift = loadDescriptorsOpenMVG_int(args, os.path.splitext(view_ids[image1_index])[0]).astype(int)
+        desc2_sift = loadDescriptorsOpenMVG_int(args, os.path.splitext(view_ids[image2_index])[0]).astype(int)
+        desc1_deep = loadDescriptorsOpenMVG_float(args, os.path.join("deep_desc", os.path.splitext(view_ids[image1_index])[0]))
+        desc2_deep = loadDescriptorsOpenMVG_float(args, os.path.join("deep_desc", os.path.splitext(view_ids[image2_index])[0]))
+        idxs = []
+        if(lastidx != image1_index):
+            tree = KDTree(desc1_deep)
+            tree_sift = KDTree(keyp1)
+            lastidx = image1_index
+        _, idx_neigh = tree_sift.query(keyp1, k = 50)
+        _, idx = tree.query(desc2_deep, k=1)
+        idx = idx[:, 0]
+        for j in range(len(idx)):
+            idxi = idx_neigh[idx[j]]
+            idxi = np.unique(idxi)
+            disij = np.linalg.norm(desc1_sift[idxi] - desc2_sift[j], axis=1)
+            #min_idx = idxi[np.argmin(np.linalg.norm(desc1_sift[idxi] - desc2_sift[j], axis=1))]
+            i1, i2 = np.argpartition(disij, 1)[:2]
+            if(disij[i1] < disij[i2]*0.8):
+                i1 = idxi[i1]
+                idxs.append([i1, j])
+
+        putative_matches.append([image1_index, image2_index, np.array(idxs).astype(np.int32)])
+
+    print('Saving putative matches...')
+    saveMatchesOpenMVG(args, putative_matches)
 
 
 if __name__ == '__main__':
@@ -135,6 +196,9 @@ if __name__ == '__main__':
         default='DeepLabv3',
         help='Deep extractor type, can be either DeepLabv3 or DINOv2'
     )
+    parser.add_argument('--preset', choices=['BOTH','EXTRACT','MATCH'], default='BOTH', help='Preset to run')
+    parser.add_argument('-p', '--pair_list', type=str, help='Path to the pair file')
+
     args = parser.parse_args()
 
     view_ids, image_paths = loadJSON(args)
@@ -147,8 +211,8 @@ if __name__ == '__main__':
         device = K.utils.get_cuda_device_if_available()
         device = "cuda:1"
 
-    disk = K.feature.DISK().from_pretrained('depth').to(device)
-    print('Loaded DISK model')
+    #disk = K.feature.DISK().from_pretrained('depth').to(device)
+    #print('Loaded DISK model')
 
     ################################################
     # Changes to kornia_demo.py starts here        #
@@ -164,6 +228,8 @@ if __name__ == '__main__':
     ################################################
     # Changes to kornia_demo.py ends here          #
     ################################################
-
     with torch.inference_mode():
-        featureExtraction(args)
+        if args.preset == 'EXTRACT' or args.preset == 'BOTH':
+            featureExtraction(args)
+        if args.preset == 'MATCH' or args.preset == 'BOTH':
+            featureMatching(args, device, view_ids)

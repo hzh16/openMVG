@@ -1,11 +1,11 @@
+from pyvips import Image
+import torch
 from argparse import ArgumentParser
 from itertools import combinations
 import json
 import kornia as K
 import numpy as np
 import os
-from pyvips import Image
-import torch
 import torchvision.transforms as transforms
 import threading
 from tqdm import tqdm
@@ -77,6 +77,8 @@ def featureExtraction(args):
     img = transforms.ToTensor()(img.resize(scale, kernel='linear').numpy())[None, ...].to(device)
 
     features = disk(img, n=args.max_features, window_size=args.window_size, score_threshold=args.score_threshold, pad_if_not_divisible=True)[0].to('cpu')
+    import pdb
+    pdb.set_trace()
     keypoints = torch.div(features.keypoints, scale)
 
     threading.Thread(target=lambda: saveFeatures(args, keypoints, features.descriptors, features.detection_scores, basename)).start()
@@ -96,6 +98,9 @@ def featureMatching(args, device, lightglue, view_ids):
     lafs2 = K.feature.laf_from_center_scale_ori(keyp2[None], 96 * torch.ones(1, len(keyp2), 1, 1, device=device))
 
     dists, idxs = lightglue(desc1, desc2, lafs1, lafs2)
+
+    import pdb
+    pdb.set_trace()
 
     putative_matches.append([image1_index, image2_index, idxs.cpu().numpy().astype(np.int32)])
 
