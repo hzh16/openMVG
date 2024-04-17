@@ -104,14 +104,27 @@ def featureExtraction(args):
         keypoints = loadFeaturesOpenMVG(args, basename)
         keypoints = torch.tensor(keypoints.astype(np.float32)).to(device)
 
-        descriptors = deep_extractor(img, keypoints * scale).to('cpu')
         ################################################
         # Changes to kornia_demo.py ends here          #
         ################################################
-
-        threading.Thread(target=lambda: saveDescriptorsOpenMVG(
-            args, os.path.join("deep_desc", basename), descriptors
-        )).start()
+        if(args.preset == 'EXTRACT_REPLACE'):
+            '''keypoints_uni = np.floor(keypoints[:, 0]) * 10000 + np.floor(keypoints[:, 1])
+            _, keypoints_idx = np.unique(keypoints_uni)
+            print("original keypoints", keypoints.shape)
+            keypoints = keypoints[keypoints_idx, :]
+            print("unique keypoints", keypoints.shape)'''
+            descriptors = deep_extractor(img, keypoints * scale).to('cpu')
+            '''threading.Thread(target=lambda: saveFeaturesOpenMVG(
+                args, basename, keypoints
+            )).start()'''
+            threading.Thread(target=lambda: saveDescriptorsOpenMVG(
+                args, basename, descriptors
+            )).start()
+        else:
+            descriptors = deep_extractor(img, keypoints * scale).to('cpu')
+            threading.Thread(target=lambda: saveDescriptorsOpenMVG(
+                args, os.path.join("deep_desc", basename), descriptors
+            )).start()
 
 
 def featureMatching(args, device, view_ids):
@@ -196,7 +209,7 @@ if __name__ == '__main__':
         default='DeepLabv3',
         help='Deep extractor type, can be either DeepLabv3 or DINOv2'
     )
-    parser.add_argument('--preset', choices=['BOTH','EXTRACT','MATCH'], default='BOTH', help='Preset to run')
+    parser.add_argument('--preset', choices=['BOTH', 'EXTRACT', 'MATCH', 'EXTRACT_REPLACE'], default='BOTH', help='Preset to run')
     parser.add_argument('-p', '--pair_list', type=str, help='Path to the pair file')
 
     args = parser.parse_args()
@@ -229,7 +242,7 @@ if __name__ == '__main__':
     # Changes to kornia_demo.py ends here          #
     ################################################
     with torch.inference_mode():
-        if args.preset == 'EXTRACT' or args.preset == 'BOTH':
+        if args.preset == 'EXTRACT' or args.preset == 'BOTH' or args.preset == 'EXTRACT_REPLACE':
             featureExtraction(args)
         if args.preset == 'MATCH' or args.preset == 'BOTH':
             featureMatching(args, device, view_ids)

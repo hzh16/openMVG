@@ -26,6 +26,7 @@ os.environ['PATH'] += PATH_DELIM + os.getcwd()
 #OPENMVG_BIN = "/home/zihang/stevens-master/pose_estimation/openMVG/build/Linux-x86_64-RELEASE"
 OPENMVG_BIN1 = "/home/zihang/stevens-master/pose_estimation/openMVG/build/Linux-x86_64-RELEASE"
 OPENMVG_BIN = "/home/zihang/openMVG_deep/openMVG_Build/Linux-x86_64-RELEASE"
+#OPENMVG_BIN = "/home/zihang/openMVG_deep/openMVG_build2/Linux-x86_64-RELEASE"
 OPENMVG_PYTHONSRC = "/home/zihang/openMVG_deep/openMVG/src/software/SfM/python/external_features_demo"
 #descriptor_type = "DeepLabv3"
 descriptor_type = "DINOv2"
@@ -38,6 +39,13 @@ CAMERA_SENSOR_DB_FILE = "sensor_width_camera_database.txt"
 
 PRESET = {'SEQUENTIAL': [0, 1, 2, 3, 4, 5, 7, 11, 12, 13, 14, 15],
           'SEQUENTIAL_2': [0, 1, 2, 3, 4, 5],
+          'SEQUENTIAL_PAIRWISE': [0, 1, 2, 3, 25],
+          'SEQUENTIAL_21': [0, 1],
+          'SEQUENTIAL_22': [2, 3, 4, 5],
+          'SEQUENTIAL_DEEP_21': [0, 18],
+          'SEQUENTIAL_DEEP_22': [2, 19, 20, 5],
+          'SEQUENTIAL_DISK_DEEP_PAIRWISE': [0, 18, 2, 19, 26],
+          'SEQUENTIAL_DEEP_PAIRWISE': [0, 1, 27, 2, 19, 26],
           'GLOBAL': [0, 1, 2, 3, 4, 6, 11, 12, 13, 14, 15],
           'MVG_SEQ': [0, 1, 2, 3, 4, 5, 7, 8, 9, 11],
           'MVG_GLOBAL': [0, 1, 2, 3, 4, 6, 7, 8, 9, 11],
@@ -48,7 +56,7 @@ PRESET = {'SEQUENTIAL': [0, 1, 2, 3, 4, 5, 7, 11, 12, 13, 14, 15],
           'SEQUENTIAL_BOTH': [0, 1, 23, 24, 4, 5, 7, 11, 12, 13, 14, 15]
           }
 
-PRESET_DEFAULT = 'SEQUENTIAL_DEEP'
+PRESET_DEFAULT = 'SEQUENTIAL_2'
 
 # HELPERS for terminal colors
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
@@ -187,6 +195,19 @@ class StepsStore:
              "python",
              [os.path.join(OPENMVG_PYTHONSRC, "kornia_two_features.py"),
              "-i", "%matches_dir%"+FOLDER_DELIM+"sfm_data.json", "-m", "%matches_dir%", "--preset", "MATCH"]],
+            ["Filter matches with poses",    # 25
+             os.path.join(OPENMVG_BIN, "openMVG_main_GeometricFilter"),
+             ["-i", "%matches_dir%" + FOLDER_DELIM + "sfm_data.json", "-m", "%matches_dir%" + FOLDER_DELIM + "matches.putative.bin", "-o",
+              "%matches_dir%" + FOLDER_DELIM + "matches.f.bin", "-g", "e"]],
+            ["Filter matches with deep and pose", # 26
+             os.path.join(OPENMVG_BIN, "openMVG_main_GeometricFilter"),
+             ["-i", "%matches_dir%" + FOLDER_DELIM + "sfm_data.json", "-m", "%matches_dir%" + FOLDER_DELIM + "matches.putative.bin", "-o",
+              "%matches_dir%" + FOLDER_DELIM + "matches.f.bin", "-g", "e", "-d", descriptor_type]],
+            ["Compute deep feature on sift",   # 27
+             "python",
+             [os.path.join(OPENMVG_PYTHONSRC, "kornia_two_features.py"),
+             "-i", "%matches_dir%"+FOLDER_DELIM+"sfm_data.json", "-m", "%matches_dir%", "--preset", "EXTRACT_REPLACE"]],
+
             ]
 
 

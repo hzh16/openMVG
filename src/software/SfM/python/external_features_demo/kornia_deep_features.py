@@ -9,10 +9,10 @@ Unlike kornia_demo.py, this file only supports feature extraction and does not
 support matching.
 '''
 
+from pyvips import Image
 from argparse import ArgumentParser
 import kornia as K
 import os
-from pyvips import Image
 import torch
 import torchvision.transforms as transforms
 import threading
