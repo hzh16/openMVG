@@ -147,7 +147,7 @@ OPENMVS_BIN       --> the path to the bin of openmvs
 
 Run
 ```
-python MvgMvsPipeline.py path-to-image $work_directory --preset SEQUENTIAL_BOTH
+python MvgMvsPipeline.py path-to-image $work_directory --preset SEQUENTIAL_DEEP
 ```
 The sfm result can be displayed as work_directory/sfm/cloud_and_poses.ply.
 
