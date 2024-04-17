@@ -57,6 +57,21 @@ PRESET = {'SEQUENTIAL': [0, 1, 2, 3, 4, 5, 7, 11, 12, 13, 14, 15],
           'SEQUENTIAL_BOTH': [0, 1, 23, 24, 4, 5, 7, 11, 12, 13, 14, 15]
           }
 
+'''
+PRESET Explanation
+    SEQUENTIAL_2:                           Use SIFT only sfm
+    SEQUENTIAL_PAIRWISE:                    Use SIFT, only generate pairwise poses without sfm
+    SEQUENTIAL_21, SEQUENTIAL_22:           Two parts of SEQUENTIAL_2
+    SEQUENTIAL_DISK_DEEP_PAIRWISE:          Use DEEP descriptors on DISK feature points, only generate pairwise poses without sfm
+
+    SEQUENTIAL_DEEP:                        Use DEEP descriptors on DISK feature points, sfm
+    SEQUENTIAL_DISK:                        Use DISK descriptors on DISK feature points, sfm
+    
+    SEQUENTIAL_DEEP_PAIRWISE:               Use DEEP descriptors on SIFT feature points, only generate pairwise poses without sfm    
+    SEQUENTIAL_SIFT_DEEP:                   Use DEEP, gonly sfm (Still need some debug)
+'''
+
+
 PRESET_DEFAULT = 'SEQUENTIAL_2'
 
 # HELPERS for terminal colors
