@@ -81,6 +81,8 @@ int main( int argc, char** argv )
   bool         bGuided_matching  = false;
   int          imax_iteration    = 2048;
   unsigned int ui_max_cache_size = 0;
+  //new add
+  bool         bPairwise_pose    = false;
 
   std::string sDescriptorCustomType = "REGULAR";
 
@@ -94,6 +96,9 @@ int main( int argc, char** argv )
   cmd.add( make_option( 'g', sGeometricModel, "geometric_model" ) );
   cmd.add( make_option( 'f', bForce, "force" ) );
   cmd.add( make_option( 'r', bGuided_matching, "guided_matching" ) );
+  //new add
+  cmd.add( make_option( 'a', bPairwise_pose, "pairwise_pose" ) );
+  
   cmd.add( make_option( 'I', imax_iteration, "max_iteration" ) );
   cmd.add( make_option( 'c', ui_max_cache_size, "cache_size" ) );
   // Descriptor type
@@ -150,6 +155,7 @@ int main( int argc, char** argv )
                    << "--geometric_model    " << sGeometricModel << "\n"
                    << "--guided_matching    " << bGuided_matching << "\n"
                    << "--cache_size         " << ((ui_max_cache_size == 0) ? "unlimited" : std::to_string(ui_max_cache_size)) << "\n"
+                   << "--pairwise_pose      " << bPairwise_pose << "\n"
                    << "--descriptor_custom_type " << sDescriptorCustomType;
 
   if ( sFilteredMatchesFilename.empty() )
@@ -334,12 +340,12 @@ int main( int argc, char** argv )
       break;
       case ESSENTIAL_MATRIX:
       {
-        filter_ptr->Robust_model_estimation(
+        filter_ptr->Robust_model_estimation_pairwise_pose(
             GeometricFilter_EMatrix_AC( 4.0, imax_iteration ),
             map_PutativeMatches,
             bGuided_matching,
             d_distance_ratio,
-            &progress );
+            &progress);
         map_GeometricMatches = filter_ptr->Get_geometric_matches();
 
         //-- Perform an additional check to remove pairs with poor overlap

@@ -27,6 +27,9 @@
 #include "openMVG/system/logger.hpp"
 #include "openMVG/types.hpp"
 
+#include "openMVG/multiview/motion_from_essential.hpp"
+#include "openMVG/geometry/pose3.hpp"
+
 namespace openMVG {
 
 namespace sfm {
@@ -46,7 +49,8 @@ struct GeometricFilter_EMatrix_AC
     m_dPrecision(dPrecision),
     m_stIteration(iteration),
     m_E(Mat3::Identity()),
-    m_dPrecision_robust(std::numeric_limits<double>::infinity())
+    m_dPrecision_robust(std::numeric_limits<double>::infinity()),
+    relative_pose(geometry::Pose3())
   {
   }
 
@@ -141,10 +145,22 @@ struct GeometricFilter_EMatrix_AC
       {
         geometric_inliers.push_back( vec_PutativeMatches[index] );
       }
+
+      // new add
+      if(!RelativePoseFromEssential((*cam_I)(xI), (*cam_J)(xJ), m_E, vec_inliers, &relative_pose))
+      {
+      	;	      
+      }
+
+
       return true;
     }
     else
     {
+      if(!RelativePoseFromEssential((*cam_I)(xI), (*cam_J)(xJ), m_E, vec_inliers, &relative_pose))
+      {
+      	;
+      }
       vec_inliers.clear();
       return false;
     }
@@ -219,6 +235,7 @@ struct GeometricFilter_EMatrix_AC
   //-- Stored data
   Mat3 m_E;
   double m_dPrecision_robust;
+  geometry::Pose3 relative_pose;
 };
 
 } //namespace matching_image_collection
