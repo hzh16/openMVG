@@ -45,7 +45,8 @@ PRESET = {'SEQUENTIAL': [0, 1, 2, 3, 4, 5, 7, 11, 12, 13, 14, 15],
           'SEQUENTIAL_DEEP_21': [0, 18],
           'SEQUENTIAL_DEEP_22': [2, 19, 20, 5],
           'SEQUENTIAL_DISK_DEEP_PAIRWISE': [0, 18, 2, 19, 26],
-          'SEQUENTIAL_DEEP_PAIRWISE': [0, 1, 27, 2, 19, 26],
+          'SEQUENTIAL_DEEP_PAIRWISE': [0, 1, 27, 2, 19, 20, 5],
+          'SEQUENTIAL_SIFT_DEEP': [0, 1, 27, 2, 3, 4, 5],
           'GLOBAL': [0, 1, 2, 3, 4, 6, 11, 12, 13, 14, 15],
           'MVG_SEQ': [0, 1, 2, 3, 4, 5, 7, 8, 9, 11],
           'MVG_GLOBAL': [0, 1, 2, 3, 4, 6, 7, 8, 9, 11],
@@ -206,7 +207,7 @@ class StepsStore:
             ["Compute deep feature on sift",   # 27
              "python",
              [os.path.join(OPENMVG_PYTHONSRC, "kornia_two_features.py"),
-             "-i", "%matches_dir%"+FOLDER_DELIM+"sfm_data.json", "-m", "%matches_dir%", "--preset", "EXTRACT_REPLACE"]],
+             "-i", "%matches_dir%"+FOLDER_DELIM+"sfm_data.json", "-m", "%matches_dir%", "--preset", "EXTRACT_REPLACE", "--deep_descriptor_type", descriptor_type]],
 
             ]
 
